@@ -14,7 +14,7 @@ from Adafruit_BNO055.BNO055 import BNO055
 class BNO055Driver(object):
 
     def __init__(self):
-        serial_port = rospy.get_param('~serial_port', '/dev/ttyUSB1')
+        serial_port = rospy.get_param('~serial_port', '/dev/ttyUSB0')
 
         try:
             self.device = BNO055(serial_port=serial_port)
