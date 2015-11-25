@@ -32,6 +32,8 @@ class BNO055Driver(object):
         calibration_status = self.device.get_calibration_status()
         rospy.loginfo('calibration status is {} {} {} {} '.format(*calibration_status))
 
+        self.device.set_external_crystal(True)
+
         self.imu_pub = rospy.Publisher('imu/data', Imu, queue_size=1)
         self.temp_pub = rospy.Publisher('temperature', Temperature, queue_size=1)
         self.frame_id = rospy.get_param('~frame_id', '/base_imu')
