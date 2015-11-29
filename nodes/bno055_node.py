@@ -2,6 +2,7 @@
 from __future__ import print_function, division
 
 import sys
+import os
 import rospy
 import math
 import time
@@ -28,6 +29,13 @@ class BNO055Driver(object):
 
         status = self.device.get_system_status()
         rospy.loginfo('system status is {} {} {} '.format(*status))
+
+        calibration_file = rospy.get_param('~calibration_file', 'bno055.json')
+        if os.path.isfile(calibration_file):
+            self.device.load_calibration(calibration_file)
+        else:
+            rospy.loginfo('unable load calibration')
+
         time.sleep(1)
         calibration_status = self.device.get_calibration_status()
         rospy.loginfo('calibration status is {} {} {} {} '.format(*calibration_status))
