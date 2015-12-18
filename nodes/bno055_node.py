@@ -15,6 +15,16 @@ from Adafruit_BNO055.BNO055 import BNO055
 class BNO055Driver(object):
 
     def __init__(self):
+        self.init_device()
+        calibration_file = rospy.get_param('~calibration_file', 'bno055.json')
+        if calibration_file:
+            self.load_calibration(calibration_file)
+        self.imu_pub = rospy.Publisher('imu/data', Imu, queue_size=1)
+        self.temp_pub = rospy.Publisher('temperature', Temperature, queue_size=1)
+        self.frame_id = rospy.get_param('~frame_id', '/base_imu')
+        self.reset_msgs()
+
+    def init_device(self):
         serial_port = rospy.get_param('~serial_port', '/dev/ttyUSB0')
 
         try:
@@ -26,6 +36,8 @@ class BNO055Driver(object):
         if not self.device.begin():
             rospy.logerr('unable to initialize IMU at port {}'.format(serial_port))
             sys.exit(-1)
+
+        self.device.set_external_crystal(True)
 
         status = self.device.get_system_status()
         rospy.loginfo('system status is {} {} {} '.format(*status))
@@ -40,16 +52,20 @@ class BNO055Driver(object):
         calibration_status = self.device.get_calibration_status()
         rospy.loginfo('calibration status is {} {} {} {} '.format(*calibration_status))
 
-        self.device.set_external_crystal(True)
-
-        self.imu_pub = rospy.Publisher('imu/data', Imu, queue_size=1)
-        self.temp_pub = rospy.Publisher('temperature', Temperature, queue_size=1)
-        self.frame_id = rospy.get_param('~frame_id', '/base_imu')
-        self.seq = 0
-        self.reset_msgs()
+    def load_calibration(self, calibration_file):
+        if os.path.isfile(calibration_file):
+            rospy.loginfo('loading calibration file from: {}'.format(calibration_file))
+            self.device.load_calibration(calibration_file)
+        else:
+            rospy.logwarn('unable to load calibration file from: {}'.format(calibration_file))
+        calibration_status = self.device.get_calibration_status()
+        rospy.loginfo('calibration status is system={} gyro={} accel={} mag={} '.format(*calibration_status))
 
     def reset_msgs(self):
         self.imu_msg = Imu()
+
+        self.imu_msg.header.frame_id = self.frame_id
+        self.imu_msg.header.seq = 0
 
         # ignore the covariance data
         self.imu_msg.orientation_covariance[0] = -1
@@ -57,16 +73,13 @@ class BNO055Driver(object):
         self.imu_msg.linear_acceleration_covariance[0] = -1
 
         self.temp_msg = Temperature()
+        self.temp_msg.header.frame_id = self.frame_id
+        self.temp_msg.header.seq = 0
         self.temp_msg.variance = 0
 
     def publish_data(self):
-        h = Header()
-        h.stamp = rospy.Time.now()
-        h.frame_id = self.frame_id
-        h.seq = self.seq
-        self.seq = self.seq + 1
-
-        self.imu_msg.header = h
+        self.imu_msg.header.stamp = rospy.Time.now()
+        self.imu_msg.header.seq = self.imu_msg.header.seq + 1
 
         q = self.device.read_quaternion()
         self.imu_msg.orientation.x = q[0]
@@ -87,11 +100,12 @@ class BNO055Driver(object):
 
         self.imu_pub.publish(self.imu_msg)
 
-        self.temp_msg.header = h
+        # ..todo:: temperature sensor supports only 1 Hz
+        self.temp_msg.header.stamp = rospy.Time.now()
+        self.temp_msg.header.seq = self.temp_msg.header.seq + 1
         self.temp_msg.temperature = self.device.read_temp()
         self.temp_pub.publish(self.temp_msg)
 
-        # self.reset_msgs()
 
 
 def main():
