@@ -17,7 +17,7 @@ class BNO055Driver(object):
         serial_port = rospy.get_param('~serial_port', '/dev/ttyUSB0')
 
         try:
-            self.device = BNO055(serial_port=serial_port)
+            self.device = BNO055.BNO055(serial_port=serial_port)
         except:
             rospy.logerr('unable to find IMU at port {}'.format(serial_port))
             sys.exit(-1)
